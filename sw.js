@@ -1,4 +1,4 @@
-const CACHE = 'classmate-v1';
+const CACHE = 'Novu-v1';
 const SHELL = ['/', '/index.html', '/styles.css', '/manifest.json', '/icons/icon.svg'];
 
 self.addEventListener('install', e => {
