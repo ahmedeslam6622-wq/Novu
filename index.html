@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Novu">
+  <meta name="theme-color" content="#080C1A">
+  <title>Novu</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Home screen ── -->
+  <div id="screen-home" class="screen active">
+    <div class="page-header animate-in">
+      <h1>Your notes</h1>
+      <p id="home-subtitle">All your class recordings</p>
+    </div>
+    <div id="pending-banner-wrap"></div>
+    <div id="rec-list-wrap"></div>
+  </div>
+
+  <!-- ── Record screen ── -->
+  <div id="screen-record" class="screen">
+    <input class="record-subject-input" id="subject-input" type="text" placeholder="Subject or class name…" maxlength="60" autocomplete="off" autocorrect="off" spellcheck="false">
+
+    <div class="waveform-wrap">
+      <canvas id="waveform-canvas" width="240" height="240"></canvas>
+      <button class="rec-btn" id="rec-btn" aria-label="Start recording">
+        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="9" y="4" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="9" y1="21" x2="15" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <div class="rec-timer" id="rec-timer">0:00</div>
+    <div class="rec-status" id="rec-status">Tap to start recording</div>
+
+    <div class="rec-controls" id="rec-controls">
+      <button class="ctrl-btn danger-btn" id="btn-discard">Discard</button>
+      <button class="ctrl-btn primary" id="btn-stop">Stop & save</button>
+    </div>
+  </div>
+
+  <!-- ── Results screen ── -->
+  <div id="screen-results" class="screen">
+    <div id="results-content"></div>
+  </div>
+
+  <!-- ── Settings screen ── -->
+  <div id="screen-settings" class="screen">
+    <div class="page-header animate-in">
+      <h1>Settings</h1>
+      <p>Customize your experience</p>
+    </div>
+
+    <div class="settings-section animate-in">
+      <div class="settings-label">Summary</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">Summary length</div>
+          <div class="settings-row-sub">How detailed the summary should be</div>
+        </div>
+        <select class="settings-select" id="setting-length">
+          <option value="short">Short</option>
+          <option value="medium" selected>Medium</option>
+          <option value="detailed">Detailed</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">Auto-summarize</div>
+          <div class="settings-row-sub">Summarize when internet reconnects</div>
+        </div>
+        <button class="toggle on" id="toggle-auto" aria-label="Toggle auto-summarize"></button>
+      </div>
+    </div>
+
+    <div class="settings-section animate-in">
+      <div class="settings-label">Storage</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">Auto-delete after</div>
+          <div class="settings-row-sub">Clears old recordings automatically</div>
+        </div>
+        <select class="settings-select" id="setting-delete">
+          <option value="never">Never</option>
+          <option value="7">7 days</option>
+          <option value="30" selected>30 days</option>
+          <option value="90">90 days</option>
+        </select>
+      </div>
+      <div class="settings-row" id="storage-info-row">
+        <div>
+          <div class="settings-row-label">Storage used</div>
+          <div class="settings-row-sub" id="storage-used">Calculating…</div>
+        </div>
+        <button class="settings-select" style="cursor:pointer;background:rgba(239,68,68,0.12);color:#EF4444;border:none;font-family:var(--font)" id="btn-clear-all">Clear all</button>
+      </div>
+    </div>
+
+    <div class="settings-section animate-in">
+      <div class="settings-label">About</div>
+      <div class="settings-row">
+        <div class="settings-row-label">Backend URL</div>
+        <input id="setting-backend" type="url" placeholder="https://your-render-url.onrender.com" style="background:var(--border);border:none;color:var(--text);font-family:var(--font);font-size:12px;padding:6px 10px;border-radius:8px;outline:none;width:180px;text-align:right;">
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-label">Version</div>
+        <span style="color:var(--text2);font-size:13px">1.0.0 beta</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Bottom nav ── -->
+  <nav id="nav">
+    <button class="nav-btn active" data-screen="home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Home
+    </button>
+    <button class="nav-btn" data-screen="record">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>
+      Record
+    </button>
+    <button class="nav-btn" data-screen="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Settings
+    </button>
+  </nav>
+
+  <!-- ── Post-record modal ── -->
+  <div class="modal-backdrop" id="save-modal">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title">Recording saved</div>
+      <div class="modal-sub" id="modal-sub">What do you want to do with it?</div>
+      <div class="modal-actions">
+        <button class="modal-btn highlighted" id="modal-btn-now">
+          <div class="modal-btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          </div>
+          <div class="modal-btn-text">
+            <span class="modal-btn-label">Summarize now</span>
+            <span class="modal-btn-desc">Uses internet to generate notes</span>
+          </div>
+        </button>
+        <button class="modal-btn" id="modal-btn-queue">
+          <div class="modal-btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="modal-btn-text">
+            <span class="modal-btn-label">Do it later</span>
+            <span class="modal-btn-desc">Summarize when you get home</span>
+          </div>
+        </button>
+        <button class="modal-btn" id="modal-btn-skip">
+          <div class="modal-btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <div class="modal-btn-text">
+            <span class="modal-btn-label">Transcript only</span>
+            <span class="modal-btn-desc">Keep the raw text, no summary</span>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script>
+// ── Storage helpers ──
+const DB = {
+  get: (k, fb = null) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del: (k) => { try { localStorage.removeItem(k); } catch {} }
+};
+
+// ── State ──
+let recordings = DB.get('recordings', []);
+let settings = DB.get('settings', { length: 'medium', autoSummarize: true, deleteAfter: '30', backendUrl: '' });
+let currentRec = null;
+let recTimer = null;
+let recSeconds = 0;
+let mediaRecorder = null;
+let audioChunks = [];
+let recognition = null;
+let transcript = '';
+let isRecording = false;
+let isPaused = false;
+let waveAnim = null;
+let waveLevel = 0;
+let audioCtx = null;
+let analyser = null;
+let waveData = null;
+
+// ── Navigation ──
+const screens = document.querySelectorAll('.screen');
+const navBtns = document.querySelectorAll('.nav-btn');
+
+function navigate(name) {
+  screens.forEach(s => s.classList.remove('active'));
+  navBtns.forEach(b => b.classList.remove('active'));
+  document.getElementById(`screen-${name}`).classList.add('active');
+  document.querySelector(`[data-screen="${name}"]`)?.classList.add('active');
+  if (name === 'home') renderHome();
+  if (name === 'settings') renderSettings();
+  if (name === 'record' && !isRecording) resetRecordScreen();
+}
+
+navBtns.forEach(btn => btn.addEventListener('click', () => navigate(btn.dataset.screen)));
+
+// ── Toast ──
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// ── Home screen ──
+function renderHome() {
+  cleanOldRecordings();
+  const list = document.getElementById('rec-list-wrap');
+  const banner = document.getElementById('pending-banner-wrap');
+  const sub = document.getElementById('home-subtitle');
+  const pending = recordings.filter(r => r.status === 'queued');
+
+  sub.textContent = recordings.length === 0 ? 'No recordings yet' : `${recordings.length} recording${recordings.length !== 1 ? 's' : ''}`;
+
+  if (pending.length > 0) {
+    banner.innerHTML = `
+      <div class="pending-banner animate-in">
+        <div class="pending-banner-text"><strong>${pending.length} recording${pending.length !== 1 ? 's' : ''}</strong> waiting to be summarized</div>
+        <button class="pending-banner-btn" onclick="summarizeAll()">Summarize all</button>
+      </div>`;
+  } else {
+    banner.innerHTML = '';
+  }
+
+  if (recordings.length === 0) {
+    list.innerHTML = `
+      <div class="empty animate-in">
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="4" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0" /><line x1="12" y1="17" x2="12" y2="21"/><line x1="9" y1="21" x2="15" y2="21"/></svg></div>
+        <h2>No recordings yet</h2>
+        <p>Tap Record to capture your first class. Notes appear here when done.</p>
+      </div>`;
+    return;
+  }
+
+  const sorted = [...recordings].sort((a, b) => b.createdAt - a.createdAt);
+  list.innerHTML = `<div class="rec-list">${sorted.map(r => recCard(r)).join('')}</div>`;
+}
+
+function recCard(r) {
+  const date = new Date(r.createdAt);
+  const dateStr = date.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' });
+  const timeStr = date.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
+  const statusMap = {
+    done: `<span class="pill pill-done"><span class="pill-dot"></span>Summarized</span>`,
+    pending: `<span class="pill pill-pending"><span class="pill-dot"></span>No summary</span>`,
+    queued: `<span class="pill pill-queued"><span class="pill-dot"></span>Queued</span>`,
+    processing: `<span class="pill pill-queued"><span class="pill-dot"></span>Processing…</span>`,
+  };
+  return `
+    <div class="card rec-card animate-in" onclick="openRecording('${r.id}')">
+      <div class="rec-card-top">
+        <div>
+          <div class="rec-subject">${escHtml(r.subject || 'Untitled class')}</div>
+          <div class="rec-date">${dateStr} · ${timeStr}</div>
+        </div>
+        ${statusMap[r.status] || ''}
+      </div>
+      <div class="rec-meta">
+        <span class="rec-duration">${fmtTime(r.duration || 0)}</span>
+        ${r.status === 'queued' ? `<button class="action-btn accent-btn" style="padding:6px 12px;font-size:12px;border-radius:8px" onclick="event.stopPropagation();summarizeOne('${r.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>Summarize now</button>` : ''}
+      </div>
+    </div>`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function openRecording(id) {
+  const rec = recordings.find(r => r.id === id);
+  if (!rec) return;
+  showResults(rec);
+  navigate('results');
+}
+
+// ── Waveform canvas ──
+function startWaveform(live = false) {
+  const canvas = document.getElementById('waveform-canvas');
+  const ctx = canvas.getContext('2d');
+  const cx = 120, cy = 120;
+  let frame = 0;
+
+  function draw() {
+    ctx.clearRect(0, 0, 240, 240);
+    if (live && analyser && waveData) {
+      analyser.getByteFrequencyData(waveData);
+      const sum = waveData.slice(0, 20).reduce((a, b) => a + b, 0);
+      waveLevel = Math.min(1, sum / (20 * 200));
+    } else {
+      waveLevel = isRecording ? 0.3 + Math.sin(frame * 0.04) * 0.2 : 0.05 + Math.sin(frame * 0.025) * 0.03;
+    }
+
+    const rings = [
+      { r: 50 + waveLevel * 18, alpha: 0.6, width: 1.5 },
+      { r: 70 + waveLevel * 26, alpha: 0.35, width: 1 },
+      { r: 90 + waveLevel * 36, alpha: 0.18, width: 0.8 },
+      { r: 108 + waveLevel * 44, alpha: 0.08, width: 0.5 },
+    ];
+
+    rings.forEach(ring => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, ring.r, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(124,92,252,${ring.alpha})`;
+      ctx.lineWidth = ring.width;
+      ctx.stroke();
+    });
+
+    // Inner fill glow
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 44 + waveLevel * 10);
+    grad.addColorStop(0, `rgba(124,92,252,${0.15 + waveLevel * 0.12})`);
+    grad.addColorStop(1, 'rgba(124,92,252,0)');
+    ctx.beginPath();
+    ctx.arc(cx, cy, 44 + waveLevel * 10, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    frame++;
+    waveAnim = requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+function stopWaveform() {
+  if (waveAnim) { cancelAnimationFrame(waveAnim); waveAnim = null; }
+}
+
+// ── Recording logic ──
+const recBtn = document.getElementById('rec-btn');
+const recTimerEl = document.getElementById('rec-timer');
+const recStatusEl = document.getElementById('rec-status');
+const recControls = document.getElementById('rec-controls');
+
+function resetRecordScreen() {
+  transcript = '';
+  recSeconds = 0;
+  isRecording = false;
+  recTimerEl.textContent = '0:00';
+  recTimerEl.classList.remove('recording');
+  recStatusEl.textContent = 'Tap to start recording';
+  recControls.classList.remove('visible');
+  recBtn.classList.remove('recording');
+  recBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="9" y="4" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="9" y1="21" x2="15" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+  stopWaveform();
+  startWaveform(false);
+}
+
+recBtn.addEventListener('click', () => { if (!isRecording) startRecording(); });
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 } });
+
+    // Web Audio analyser for live waveform
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 64;
+    waveData = new Uint8Array(analyser.frequencyBinCount);
+    audioCtx.createMediaStreamSource(stream).connect(analyser);
+
+    // MediaRecorder for saving audio
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.start(1000);
+
+    // Speech recognition
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SR) {
+      recognition = new SR();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = '';
+      let finalTranscript = '';
+      recognition.onresult = e => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) finalTranscript += t + ' ';
+          else interim = t;
+        }
+        transcript = (finalTranscript + interim).trim();
+      };
+      recognition.onerror = () => {};
+      recognition.onend = () => { if (isRecording) { try { recognition.start(); } catch {} } };
+      recognition.start();
+    }
+
+    isRecording = true;
+    recBtn.classList.add('recording');
+    recBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
+    recTimerEl.classList.add('recording');
+    recStatusEl.textContent = 'Listening…';
+    recControls.classList.add('visible');
+    stopWaveform();
+    startWaveform(true);
+
+    recTimer = setInterval(() => {
+      recSeconds++;
+      recTimerEl.textContent = fmtTime(recSeconds);
+    }, 1000);
+
+  } catch (err) {
+    showToast('Microphone access denied');
+  }
+}
+
+document.getElementById('btn-stop').addEventListener('click', stopRecording);
+document.getElementById('btn-discard').addEventListener('click', () => {
+  if (!confirm('Discard this recording?')) return;
+  discardRecording();
+  resetRecordScreen();
+  showToast('Recording discarded');
+});
+
+function stopRecording() {
+  if (!isRecording) return;
+  isRecording = false;
+  clearInterval(recTimer);
+  if (recognition) { try { recognition.stop(); } catch {} }
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  if (audioCtx) audioCtx.close();
+
+  recBtn.classList.remove('recording');
+  recStatusEl.textContent = 'Saved';
+  recControls.classList.remove('visible');
+  stopWaveform();
+  startWaveform(false);
+
+  // Save recording object
+  const id = 'rec_' + Date.now();
+  currentRec = {
+    id,
+    subject: document.getElementById('subject-input').value.trim() || 'Untitled class',
+    transcript: transcript || '',
+    summary: null,
+    status: 'pending',
+    duration: recSeconds,
+    createdAt: Date.now()
+  };
+
+  openSaveModal();
+}
+
+function discardRecording() {
+  isRecording = false;
+  clearInterval(recTimer);
+  if (recognition) { try { recognition.stop(); } catch {} }
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  if (audioCtx) audioCtx.close();
+  currentRec = null;
+  transcript = '';
+}
+
+// ── Save modal ──
+function openSaveModal() {
+  const modal = document.getElementById('save-modal');
+  const isOnline = navigator.onLine;
+  document.getElementById('modal-sub').textContent = isOnline
+    ? 'Internet is available — summarize now or save for later.'
+    : 'No internet right now. You can queue it for when you\'re home.';
+  document.getElementById('modal-btn-now').style.opacity = isOnline ? '1' : '0.4';
+  document.getElementById('modal-btn-now').style.pointerEvents = isOnline ? 'auto' : 'none';
+  modal.classList.add('open');
+}
+
+function closeSaveModal() {
+  document.getElementById('save-modal').classList.remove('open');
+}
+
+document.getElementById('modal-btn-now').addEventListener('click', () => {
+  if (!currentRec) return;
+  currentRec.status = 'queued';
+  saveRec(currentRec);
+  closeSaveModal();
+  resetRecordScreen();
+  navigate('home');
+  summarizeOne(currentRec.id);
+  currentRec = null;
+});
+
+document.getElementById('modal-btn-queue').addEventListener('click', () => {
+  if (!currentRec) return;
+  currentRec.status = 'queued';
+  saveRec(currentRec);
+  closeSaveModal();
+  resetRecordScreen();
+  navigate('home');
+  showToast('Queued — we\'ll summarize it later');
+  currentRec = null;
+});
+
+document.getElementById('modal-btn-skip').addEventListener('click', () => {
+  if (!currentRec) return;
+  currentRec.status = 'pending';
+  saveRec(currentRec);
+  closeSaveModal();
+  resetRecordScreen();
+  navigate('home');
+  showToast('Saved as transcript only');
+  currentRec = null;
+});
+
+document.getElementById('save-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('save-modal')) closeSaveModal();
+});
+
+// ── Summarization ──
+async function summarizeOne(id) {
+  const rec = recordings.find(r => r.id === id);
+  if (!rec || !rec.transcript) { showToast('No transcript to summarize'); return; }
+  if (!navigator.onLine) { showToast('No internet — will retry later'); return; }
+
+  const backendUrl = settings.backendUrl || '';
+  if (!backendUrl) { showToast('Set backend URL in Settings first'); return; }
+
+  rec.status = 'processing';
+  saveRec(rec);
+  renderHome();
+
+  try {
+    const res = await fetch(`${backendUrl}/summarize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript: rec.transcript, length: settings.length })
+    });
+    if (!res.ok) throw new Error('Server error');
+    const data = await res.json();
+    rec.summary = data.summary;
+    rec.status = 'done';
+    saveRec(rec);
+    renderHome();
+    showToast('Summary ready');
+  } catch {
+    rec.status = 'queued';
+    saveRec(rec);
+    renderHome();
+    showToast('Failed — will retry later');
+  }
+}
+
+async function summarizeAll() {
+  const queued = recordings.filter(r => r.status === 'queued');
+  for (const r of queued) await summarizeOne(r.id);
+}
+
+// ── Results screen ──
+function showResults(rec) {
+  const el = document.getElementById('results-content');
+  const date = new Date(rec.createdAt).toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  let summaryHtml = '';
+  if (rec.status === 'processing') {
+    summaryHtml = `<div class="processing-wrap"><div class="spinner"></div><p style="color:var(--text2);font-size:14px">Generating summary…</p></div>`;
+  } else if (rec.summary) {
+    const points = rec.summary.split('\n').filter(l => l.trim());
+    summaryHtml = `<div class="summary-list">${points.map(p => `<div class="summary-item"><div class="summary-dot"></div><span>${escHtml(p.replace(/^[-•*]\s*/, ''))}</span></div>`).join('')}</div>`;
+  } else {
+    summaryHtml = `
+      <div class="card" style="text-align:center;padding:32px 20px">
+        <p style="color:var(--text2);font-size:14px;margin-bottom:16px">No summary yet</p>
+        ${rec.transcript ? `<button class="ctrl-btn primary" style="margin:0 auto;display:block;width:auto;padding:12px 24px" onclick="summarizeOne('${rec.id}');navigate('home')">Summarize now</button>` : '<p style="color:var(--text3);font-size:13px">No transcript available</p>'}
+      </div>`;
+  }
+
+  const transcriptHtml = rec.transcript
+    ? `<div class="transcript-text">${escHtml(rec.transcript)}</div>`
+    : `<div class="card" style="text-align:center;padding:32px;color:var(--text2);font-size:14px">No transcript captured</div>`;
+
+  el.innerHTML = `
+    <div class="results-header animate-in">
+      <h1>${escHtml(rec.subject || 'Untitled class')}</h1>
+      <div class="results-meta">
+        <span>${date}</span>
+        <span>·</span>
+        <span class="rec-duration">${fmtTime(rec.duration || 0)}</span>
+      </div>
+    </div>
+    <div class="action-row animate-in">
+      <button class="action-btn" onclick="copyText('${rec.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy
+      </button>
+      <button class="action-btn" onclick="shareRec('${rec.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Share
+      </button>
+      <button class="action-btn" style="color:var(--danger);border-color:rgba(239,68,68,0.3)" onclick="deleteRec('${rec.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        Delete
+      </button>
+    </div>
+    <div class="tab-bar animate-in">
+      <button class="tab active" onclick="switchTab(this,'tab-summary')">Summary</button>
+      <button class="tab" onclick="switchTab(this,'tab-transcript')">Full transcript</button>
+    </div>
+    <div id="tab-summary" class="tab-content active">${summaryHtml}</div>
+    <div id="tab-transcript" class="tab-content">${transcriptHtml}</div>
+  `;
+}
+
+function switchTab(btn, targetId) {
+  btn.closest('.screen, #results-content').querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.closest('.screen, #results-content').querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(targetId).classList.add('active');
+}
+
+async function copyText(id) {
+  const rec = recordings.find(r => r.id === id);
+  if (!rec) return;
+  const text = rec.summary ? `${rec.subject}\n\nSummary:\n${rec.summary}\n\nTranscript:\n${rec.transcript}` : rec.transcript;
+  try { await navigator.clipboard.writeText(text); showToast('Copied to clipboard'); } catch { showToast('Copy failed'); }
+}
+
+async function shareRec(id) {
+  const rec = recordings.find(r => r.id === id);
+  if (!rec) return;
+  const text = rec.summary ? `${rec.subject} — Class Notes\n\n${rec.summary}` : rec.transcript;
+  if (navigator.share) {
+    try { await navigator.share({ title: rec.subject || 'Class Notes', text }); } catch {}
+  } else {
+    await copyText(id);
+  }
+}
+
+function deleteRec(id) {
+  if (!confirm('Delete this recording?')) return;
+  recordings = recordings.filter(r => r.id !== id);
+  DB.set('recordings', recordings);
+  navigate('home');
+  showToast('Recording deleted');
+}
+
+// ── Settings ──
+function renderSettings() {
+  document.getElementById('setting-length').value = settings.length;
+  document.getElementById('setting-delete').value = settings.deleteAfter;
+  document.getElementById('setting-backend').value = settings.backendUrl || '';
+  document.getElementById('toggle-auto').className = 'toggle' + (settings.autoSummarize ? ' on' : '');
+
+  const bytes = new Blob([JSON.stringify(recordings)]).size;
+  const kb = (bytes / 1024).toFixed(1);
+  document.getElementById('storage-used').textContent = `${kb} KB used`;
+}
+
+document.getElementById('setting-length').addEventListener('change', e => { settings.length = e.target.value; DB.set('settings', settings); });
+document.getElementById('setting-delete').addEventListener('change', e => { settings.deleteAfter = e.target.value; DB.set('settings', settings); });
+document.getElementById('setting-backend').addEventListener('change', e => { settings.backendUrl = e.target.value.trim(); DB.set('settings', settings); showToast('Backend URL saved'); });
+document.getElementById('toggle-auto').addEventListener('click', function() { settings.autoSummarize = !settings.autoSummarize; this.classList.toggle('on', settings.autoSummarize); DB.set('settings', settings); });
+document.getElementById('btn-clear-all').addEventListener('click', () => {
+  if (!confirm('Delete ALL recordings? This cannot be undone.')) return;
+  recordings = [];
+  DB.set('recordings', recordings);
+  renderSettings();
+  showToast('All recordings cleared');
+});
+
+// ── Helpers ──
+function fmtTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
+function saveRec(rec) {
+  const idx = recordings.findIndex(r => r.id === rec.id);
+  if (idx >= 0) recordings[idx] = rec;
+  else recordings.push(rec);
+  DB.set('recordings', recordings);
+}
+
+function cleanOldRecordings() {
+  if (settings.deleteAfter === 'never') return;
+  const days = parseInt(settings.deleteAfter);
+  const cutoff = Date.now() - days * 86400000;
+  const before = recordings.length;
+  recordings = recordings.filter(r => r.createdAt > cutoff);
+  if (recordings.length !== before) { DB.set('recordings', recordings); }
+}
+
+// ── Auto-summarize on reconnect ──
+window.addEventListener('online', () => {
+  if (settings.autoSummarize) {
+    const queued = recordings.filter(r => r.status === 'queued');
+    if (queued.length > 0) { showToast('Back online — summarizing queued notes'); summarizeAll(); }
+  }
+});
+
+// ── Service worker ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// ── Boot ──
+navigate('home');
+startWaveform(false);
+</script>
+</body>
+</html>

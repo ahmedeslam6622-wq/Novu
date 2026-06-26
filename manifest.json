@@ -1,0 +1,13 @@
+{
+  "name": "Classmate",
+  "short_name": "Classmate",
+  "description": "Record your class. Get smart notes.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080C1A",
+  "theme_color": "#080C1A",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
