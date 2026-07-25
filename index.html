@@ -105,10 +105,6 @@
     <div class="settings-section animate-in">
       <div class="settings-label">About</div>
       <div class="settings-row">
-        <div class="settings-row-label">Backend URL</div>
-        <input id="setting-backend" type="url" placeholder="https://your-render-url.onrender.com" style="background:var(--border);border:none;color:var(--text);font-family:var(--font);font-size:12px;padding:6px 10px;border-radius:8px;outline:none;width:180px;text-align:right;">
-      </div>
-      <div class="settings-row">
         <div class="settings-row-label">Version</div>
         <span style="color:var(--text2);font-size:13px">1.0.0 beta</span>
       </div>
@@ -173,6 +169,9 @@
 </div>
 
 <script>
+// ── Config ──
+const BACKEND_URL = 'https://novu-backend.vercel.app/api/index';
+
 // ── Storage helpers ──
 const DB = {
   get: (k, fb = null) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } },
@@ -182,7 +181,7 @@ const DB = {
 
 // ── State ──
 let recordings = DB.get('recordings', []);
-let settings = DB.get('settings', { length: 'medium', autoSummarize: true, deleteAfter: '30', backendUrl: '' });
+let settings = DB.get('settings', { length: 'medium', autoSummarize: true, deleteAfter: '30' });
 let currentRec = null;
 let recTimer = null;
 let recSeconds = 0;
@@ -532,8 +531,7 @@ async function summarizeOne(id) {
   if (!rec || !rec.transcript) { showToast('No transcript to summarize'); return; }
   if (!navigator.onLine) { showToast('No internet — will retry later'); return; }
 
-  const backendUrl = settings.backendUrl || '';
-  if (!backendUrl) { showToast('Set backend URL in Settings first'); return; }
+  const backendUrl = BACKEND_URL;
 
   rec.status = 'processing';
   saveRec(rec);
@@ -657,7 +655,6 @@ function deleteRec(id) {
 function renderSettings() {
   document.getElementById('setting-length').value = settings.length;
   document.getElementById('setting-delete').value = settings.deleteAfter;
-  document.getElementById('setting-backend').value = settings.backendUrl || '';
   document.getElementById('toggle-auto').className = 'toggle' + (settings.autoSummarize ? ' on' : '');
 
   const bytes = new Blob([JSON.stringify(recordings)]).size;
@@ -667,7 +664,6 @@ function renderSettings() {
 
 document.getElementById('setting-length').addEventListener('change', e => { settings.length = e.target.value; DB.set('settings', settings); });
 document.getElementById('setting-delete').addEventListener('change', e => { settings.deleteAfter = e.target.value; DB.set('settings', settings); });
-document.getElementById('setting-backend').addEventListener('change', e => { settings.backendUrl = e.target.value.trim(); DB.set('settings', settings); showToast('Backend URL saved'); });
 document.getElementById('toggle-auto').addEventListener('click', function() { settings.autoSummarize = !settings.autoSummarize; this.classList.toggle('on', settings.autoSummarize); DB.set('settings', settings); });
 document.getElementById('btn-clear-all').addEventListener('click', () => {
   if (!confirm('Delete ALL recordings? This cannot be undone.')) return;
