@@ -39,6 +39,7 @@
     <div class="rec-timer" id="rec-timer">0:00</div>
     <div class="rec-status" id="rec-status">Tap to start recording</div>
 
+    <div id="live-transcript" style="width:100%;max-height:120px;overflow-y:auto;font-family:var(--mono);font-size:12px;color:var(--text2);background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:16px;display:none;"></div>
     <div class="rec-controls" id="rec-controls">
       <button class="ctrl-btn danger-btn" id="btn-discard">Discard</button>
       <button class="ctrl-btn primary" id="btn-stop">Stop & save</button>
@@ -361,8 +362,11 @@ function resetRecordScreen() {
   recControls.classList.remove('visible');
   recBtn.classList.remove('recording');
   recBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="9" y="4" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="9" y1="21" x2="15" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+  const liveEl = document.getElementById('live-transcript');
+  if (liveEl) { liveEl.style.display = 'none'; liveEl.textContent = ''; }
   stopWaveform();
   startWaveform(false);
+  
 }
 
 recBtn.addEventListener('click', () => { if (!isRecording) startRecording(); });
@@ -418,6 +422,8 @@ async function startRecording() {
     recBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
     recTimerEl.classList.add('recording');
     recStatusEl.textContent = 'Listening…';
+    const liveEl = document.getElementById('live-transcript');
+if (liveEl) liveEl.style.display = 'block';
     recControls.classList.add('visible');
     stopWaveform();
     startWaveform(true);
