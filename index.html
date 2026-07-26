@@ -159,9 +159,24 @@
       </div>
     </div>
   </div>
-
+<div class="modal-backdrop" id="consent-modal" style="align-items:center;">
+    <div class="modal-sheet" style="border-radius:var(--radius);margin:20px;">
+      <div class="modal-handle"></div>
+      <div class="modal-title">Before you start</div>
+      <div class="modal-sub" style="display:block;margin-bottom:24px;">Novu records audio to generate class notes. Please make sure you have permission from your teacher or whoever you're recording before using this app. Novu is not responsible for how you use it.</div>
+      <div class="modal-actions">
+        <button class="modal-btn highlighted" id="consent-agree" style="justify-content:center;">
+          <div class="modal-btn-text" style="align-items:center;">
+            <span class="modal-btn-label">I understand</span>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
   <div id="toast"></div>
 </div>
+ 
+  
 
 <script>
 // ── Config ──
@@ -495,6 +510,14 @@ document.getElementById('modal-btn-now').addEventListener('click', () => {
   saveRec(rec);
   closeSaveModal();
   resetRecordScreen();
+  // ── Consent check ──
+if (!DB.get('consent_given')) {
+  document.getElementById('consent-modal').classList.add('open');
+  document.getElementById('consent-agree').addEventListener('click', () => {
+    DB.set('consent_given', true);
+    document.getElementById('consent-modal').classList.remove('open');
+  });
+}
   navigate('home');
   summarizeOne(rec.id);
   currentRec = null;
