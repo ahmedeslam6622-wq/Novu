@@ -28,17 +28,14 @@
   <!-- ── Record screen ── -->
   <div id="screen-record" class="screen">
     <input class="record-subject-input" id="subject-input" type="text" placeholder="Subject or class name…" maxlength="60" autocomplete="off" autocorrect="off" spellcheck="false">
-
     <div class="waveform-wrap">
       <canvas id="waveform-canvas" width="240" height="240"></canvas>
       <button class="rec-btn" id="rec-btn" aria-label="Start recording">
         <svg viewBox="0 0 24 24" fill="currentColor"><rect x="9" y="4" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="9" y1="21" x2="15" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
     </div>
-
     <div class="rec-timer" id="rec-timer">0:00</div>
     <div class="rec-status" id="rec-status">Tap to start recording</div>
-
     <div id="live-transcript" style="width:100%;max-height:120px;overflow-y:auto;font-family:var(--mono);font-size:12px;color:var(--text2);background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:16px;display:none;"></div>
     <div class="rec-controls" id="rec-controls">
       <button class="ctrl-btn danger-btn" id="btn-discard">Discard</button>
@@ -57,7 +54,6 @@
       <h1>Settings</h1>
       <p>Customize your experience</p>
     </div>
-
     <div class="settings-section animate-in">
       <div class="settings-label">Summary</div>
       <div class="settings-row">
@@ -79,7 +75,6 @@
         <button class="toggle on" id="toggle-auto" aria-label="Toggle auto-summarize"></button>
       </div>
     </div>
-
     <div class="settings-section animate-in">
       <div class="settings-label">Storage</div>
       <div class="settings-row">
@@ -102,7 +97,6 @@
         <button class="settings-select" style="cursor:pointer;background:rgba(239,68,68,0.12);color:#EF4444;border:none;font-family:var(--font)" id="btn-clear-all">Clear all</button>
       </div>
     </div>
-
     <div class="settings-section animate-in">
       <div class="settings-label">About</div>
       <div class="settings-row">
@@ -188,15 +182,14 @@ let recTimer = null;
 let recSeconds = 0;
 let mediaRecorder = null;
 let audioChunks = [];
-let recognition = null;
 let transcript = '';
 let isRecording = false;
-let isPaused = false;
 let waveAnim = null;
 let waveLevel = 0;
 let audioCtx = null;
 let analyser = null;
 let waveData = null;
+let currentStream = null;
 
 // ── Navigation ──
 const screens = document.querySelectorAll('.screen');
@@ -247,7 +240,7 @@ function renderHome() {
   if (recordings.length === 0) {
     list.innerHTML = `
       <div class="empty animate-in">
-        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="4" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0" /><line x1="12" y1="17" x2="12" y2="21"/><line x1="9" y1="21" x2="15" y2="21"/></svg></div>
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="4" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="9" y1="21" x2="15" y2="21"/></svg></div>
         <h2>No recordings yet</h2>
         <p>Tap Record to capture your first class. Notes appear here when done.</p>
       </div>`;
@@ -327,7 +320,6 @@ function startWaveform(live = false) {
       ctx.stroke();
     });
 
-    // Inner fill glow
     const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 44 + waveLevel * 10);
     grad.addColorStop(0, `rgba(124,92,252,${0.15 + waveLevel * 0.12})`);
     grad.addColorStop(1, 'rgba(124,92,252,0)');
@@ -366,7 +358,6 @@ function resetRecordScreen() {
   if (liveEl) { liveEl.style.display = 'none'; liveEl.textContent = ''; }
   stopWaveform();
   startWaveform(false);
-  
 }
 
 recBtn.addEventListener('click', () => { if (!isRecording) startRecording(); });
@@ -374,6 +365,7 @@ recBtn.addEventListener('click', () => { if (!isRecording) startRecording(); });
 async function startRecording() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 } });
+    currentStream = stream;
 
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     analyser = audioCtx.createAnalyser();
@@ -382,15 +374,16 @@ async function startRecording() {
     audioCtx.createMediaStreamSource(stream).connect(analyser);
 
     transcript = '';
-    let chunkTranscript = '';
 
     function startChunk() {
-      mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      if (!isRecording) return;
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+      mediaRecorder = new MediaRecorder(stream, { mimeType });
       audioChunks = [];
       mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
       mediaRecorder.onstop = async () => {
-        if (!isRecording && audioChunks.length === 0) return;
-        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        if (audioChunks.length === 0) { if (isRecording) startChunk(); return; }
+        const blob = new Blob(audioChunks, { type: mimeType });
         try {
           const res = await fetch(BACKEND_URL, {
             method: 'POST',
@@ -415,15 +408,15 @@ async function startRecording() {
       }, 10000);
     }
 
+    isRecording = true;
     startChunk();
 
-    isRecording = true;
     recBtn.classList.add('recording');
     recBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
     recTimerEl.classList.add('recording');
     recStatusEl.textContent = 'Listening…';
     const liveEl = document.getElementById('live-transcript');
-if (liveEl) liveEl.style.display = 'block';
+    if (liveEl) liveEl.style.display = 'block';
     recControls.classList.add('visible');
     stopWaveform();
     startWaveform(true);
@@ -437,14 +430,47 @@ if (liveEl) liveEl.style.display = 'block';
     showToast('Microphone access denied');
   }
 }
-function discardRecording() {
+
+document.getElementById('btn-stop').addEventListener('click', stopRecording);
+document.getElementById('btn-discard').addEventListener('click', () => {
+  if (!confirm('Discard this recording?')) return;
   isRecording = false;
   clearInterval(recTimer);
-  if (recognition) { try { recognition.stop(); } catch {} }
   if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
   if (audioCtx) audioCtx.close();
+  if (currentStream) currentStream.getTracks().forEach(t => t.stop());
   currentRec = null;
   transcript = '';
+  resetRecordScreen();
+  showToast('Recording discarded');
+});
+
+function stopRecording() {
+  if (!isRecording) return;
+  isRecording = false;
+  clearInterval(recTimer);
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  if (audioCtx) audioCtx.close();
+  if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+
+  recBtn.classList.remove('recording');
+  recStatusEl.textContent = 'Saved';
+  recControls.classList.remove('visible');
+  stopWaveform();
+  startWaveform(false);
+
+  const id = 'rec_' + Date.now();
+  currentRec = {
+    id,
+    subject: document.getElementById('subject-input').value.trim() || 'Untitled class',
+    transcript: transcript || '',
+    summary: null,
+    status: 'pending',
+    duration: recSeconds,
+    createdAt: Date.now()
+  };
+
+  openSaveModal();
 }
 
 // ── Save modal ──
@@ -465,19 +491,19 @@ function closeSaveModal() {
 
 document.getElementById('modal-btn-now').addEventListener('click', () => {
   if (!currentRec) return;
-  currentRec.status = 'queued';
-  saveRec(currentRec);
+  const rec = { ...currentRec, status: 'queued' };
+  saveRec(rec);
   closeSaveModal();
   resetRecordScreen();
   navigate('home');
-  summarizeOne(currentRec.id);
+  summarizeOne(rec.id);
   currentRec = null;
 });
 
 document.getElementById('modal-btn-queue').addEventListener('click', () => {
   if (!currentRec) return;
-  currentRec.status = 'queued';
-  saveRec(currentRec);
+  const rec = { ...currentRec, status: 'queued' };
+  saveRec(rec);
   closeSaveModal();
   resetRecordScreen();
   navigate('home');
@@ -487,8 +513,8 @@ document.getElementById('modal-btn-queue').addEventListener('click', () => {
 
 document.getElementById('modal-btn-skip').addEventListener('click', () => {
   if (!currentRec) return;
-  currentRec.status = 'pending';
-  saveRec(currentRec);
+  const rec = { ...currentRec, status: 'pending' };
+  saveRec(rec);
   closeSaveModal();
   resetRecordScreen();
   navigate('home');
@@ -505,48 +531,91 @@ async function summarizeOne(id) {
   const rec = recordings.find(r => r.id === id);
   if (!rec) return;
   if (!navigator.onLine) { showToast('No internet — will retry later'); return; }
-  if (!rec.audioBlob && !rec.transcript) { showToast('No audio to transcribe'); return; }
+  if (!rec.transcript) { showToast('No transcript to summarize'); return; }
 
   rec.status = 'processing';
   saveRec(rec);
   renderHome();
 
   try {
-    // Step 1: transcribe audio if we have it
-    if (rec.audioBlob) {
-      const audioData = await fetch(rec.audioBlob).then(r => r.blob());
-      const res = await fetch(BACKEND_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'audio/webm' },
-        body: audioData
-      });
-      if (!res.ok) throw new Error('Transcription failed');
-      const data = await res.json();
-      rec.transcript = data.transcript;
-      saveRec(rec);
-    }
-
-    if (!rec.transcript) throw new Error('No transcript');
-
-    // Step 2: summarize
-    const res2 = await fetch(BACKEND_URL, {
+    const res = await fetch(BACKEND_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ transcript: rec.transcript, length: settings.length })
     });
-    if (!res2.ok) throw new Error('Summarization failed');
-    const data2 = await res2.json();
-    rec.summary = data2.summary;
+    if (!res.ok) throw new Error('Server error');
+    const data = await res.json();
+    rec.summary = data.summary;
     rec.status = 'done';
     saveRec(rec);
     renderHome();
     showToast('Summary ready');
-  } catch (e) {
+  } catch {
     rec.status = 'queued';
     saveRec(rec);
     renderHome();
     showToast('Failed — will retry later');
   }
+}
+
+async function summarizeAll() {
+  const queued = recordings.filter(r => r.status === 'queued');
+  for (const r of queued) await summarizeOne(r.id);
+}
+
+// ── Results screen ──
+function showResults(rec) {
+  const el = document.getElementById('results-content');
+  const date = new Date(rec.createdAt).toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  let summaryHtml = '';
+  if (rec.status === 'processing') {
+    summaryHtml = `<div class="processing-wrap"><div class="spinner"></div><p style="color:var(--text2);font-size:14px">Generating summary…</p></div>`;
+  } else if (rec.summary) {
+    const points = rec.summary.split('\n').filter(l => l.trim());
+    summaryHtml = `<div class="summary-list">${points.map(p => `<div class="summary-item"><div class="summary-dot"></div><span>${escHtml(p.replace(/^[-•*]\s*/, ''))}</span></div>`).join('')}</div>`;
+  } else {
+    summaryHtml = `
+      <div class="card" style="text-align:center;padding:32px 20px">
+        <p style="color:var(--text2);font-size:14px;margin-bottom:16px">No summary yet</p>
+        ${rec.transcript ? `<button class="ctrl-btn primary" style="margin:0 auto;display:block;width:auto;padding:12px 24px" onclick="summarizeOne('${rec.id}');navigate('home')">Summarize now</button>` : '<p style="color:var(--text3);font-size:13px">No transcript available</p>'}
+      </div>`;
+  }
+
+  const transcriptHtml = rec.transcript
+    ? `<div class="transcript-text">${escHtml(rec.transcript)}</div>`
+    : `<div class="card" style="text-align:center;padding:32px;color:var(--text2);font-size:14px">No transcript captured</div>`;
+
+  el.innerHTML = `
+    <div class="results-header animate-in">
+      <h1>${escHtml(rec.subject || 'Untitled class')}</h1>
+      <div class="results-meta">
+        <span>${date}</span>
+        <span>·</span>
+        <span class="rec-duration">${fmtTime(rec.duration || 0)}</span>
+      </div>
+    </div>
+    <div class="action-row animate-in">
+      <button class="action-btn" onclick="copyText('${rec.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy
+      </button>
+      <button class="action-btn" onclick="shareRec('${rec.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Share
+      </button>
+      <button class="action-btn" style="color:var(--danger);border-color:rgba(239,68,68,0.3)" onclick="deleteRec('${rec.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        Delete
+      </button>
+    </div>
+    <div class="tab-bar animate-in">
+      <button class="tab active" onclick="switchTab(this,'tab-summary')">Summary</button>
+      <button class="tab" onclick="switchTab(this,'tab-transcript')">Full transcript</button>
+    </div>
+    <div id="tab-summary" class="tab-content active">${summaryHtml}</div>
+    <div id="tab-transcript" class="tab-content">${transcriptHtml}</div>
+  `;
 }
 
 function switchTab(btn, targetId) {
@@ -587,7 +656,6 @@ function renderSettings() {
   document.getElementById('setting-length').value = settings.length;
   document.getElementById('setting-delete').value = settings.deleteAfter;
   document.getElementById('toggle-auto').className = 'toggle' + (settings.autoSummarize ? ' on' : '');
-
   const bytes = new Blob([JSON.stringify(recordings)]).size;
   const kb = (bytes / 1024).toFixed(1);
   document.getElementById('storage-used').textContent = `${kb} KB used`;
