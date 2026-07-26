@@ -528,94 +528,50 @@ document.getElementById('save-modal').addEventListener('click', e => {
 // ── Summarization ──
 async function summarizeOne(id) {
   const rec = recordings.find(r => r.id === id);
-  if (!rec || !rec.transcript) { showToast('No transcript to summarize'); return; }
+  if (!rec) return;
   if (!navigator.onLine) { showToast('No internet — will retry later'); return; }
-
-  const backendUrl = BACKEND_URL;
+  if (!rec.audioBlob && !rec.transcript) { showToast('No audio to transcribe'); return; }
 
   rec.status = 'processing';
   saveRec(rec);
   renderHome();
 
   try {
-    const res = await fetch(backendUrl, {
+    // Step 1: transcribe audio if we have it
+    if (rec.audioBlob) {
+      const audioData = await fetch(rec.audioBlob).then(r => r.blob());
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'audio/webm' },
+        body: audioData
+      });
+      if (!res.ok) throw new Error('Transcription failed');
+      const data = await res.json();
+      rec.transcript = data.transcript;
+      saveRec(rec);
+    }
+
+    if (!rec.transcript) throw new Error('No transcript');
+
+    // Step 2: summarize
+    const res2 = await fetch(BACKEND_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ transcript: rec.transcript, length: settings.length })
     });
-    if (!res.ok) throw new Error('Server error');
-    const data = await res.json();
-    rec.summary = data.summary;
+    if (!res2.ok) throw new Error('Summarization failed');
+    const data2 = await res2.json();
+    rec.summary = data2.summary;
     rec.status = 'done';
     saveRec(rec);
     renderHome();
     showToast('Summary ready');
-  } catch {
+  } catch (e) {
     rec.status = 'queued';
     saveRec(rec);
     renderHome();
     showToast('Failed — will retry later');
   }
-}
-
-async function summarizeAll() {
-  const queued = recordings.filter(r => r.status === 'queued');
-  for (const r of queued) await summarizeOne(r.id);
-}
-
-// ── Results screen ──
-function showResults(rec) {
-  const el = document.getElementById('results-content');
-  const date = new Date(rec.createdAt).toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' });
-
-  let summaryHtml = '';
-  if (rec.status === 'processing') {
-    summaryHtml = `<div class="processing-wrap"><div class="spinner"></div><p style="color:var(--text2);font-size:14px">Generating summary…</p></div>`;
-  } else if (rec.summary) {
-    const points = rec.summary.split('\n').filter(l => l.trim());
-    summaryHtml = `<div class="summary-list">${points.map(p => `<div class="summary-item"><div class="summary-dot"></div><span>${escHtml(p.replace(/^[-•*]\s*/, ''))}</span></div>`).join('')}</div>`;
-  } else {
-    summaryHtml = `
-      <div class="card" style="text-align:center;padding:32px 20px">
-        <p style="color:var(--text2);font-size:14px;margin-bottom:16px">No summary yet</p>
-        ${rec.transcript ? `<button class="ctrl-btn primary" style="margin:0 auto;display:block;width:auto;padding:12px 24px" onclick="summarizeOne('${rec.id}');navigate('home')">Summarize now</button>` : '<p style="color:var(--text3);font-size:13px">No transcript available</p>'}
-      </div>`;
-  }
-
-  const transcriptHtml = rec.transcript
-    ? `<div class="transcript-text">${escHtml(rec.transcript)}</div>`
-    : `<div class="card" style="text-align:center;padding:32px;color:var(--text2);font-size:14px">No transcript captured</div>`;
-
-  el.innerHTML = `
-    <div class="results-header animate-in">
-      <h1>${escHtml(rec.subject || 'Untitled class')}</h1>
-      <div class="results-meta">
-        <span>${date}</span>
-        <span>·</span>
-        <span class="rec-duration">${fmtTime(rec.duration || 0)}</span>
-      </div>
-    </div>
-    <div class="action-row animate-in">
-      <button class="action-btn" onclick="copyText('${rec.id}')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        Copy
-      </button>
-      <button class="action-btn" onclick="shareRec('${rec.id}')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-        Share
-      </button>
-      <button class="action-btn" style="color:var(--danger);border-color:rgba(239,68,68,0.3)" onclick="deleteRec('${rec.id}')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-        Delete
-      </button>
-    </div>
-    <div class="tab-bar animate-in">
-      <button class="tab active" onclick="switchTab(this,'tab-summary')">Summary</button>
-      <button class="tab" onclick="switchTab(this,'tab-transcript')">Full transcript</button>
-    </div>
-    <div id="tab-summary" class="tab-content active">${summaryHtml}</div>
-    <div id="tab-transcript" class="tab-content">${transcriptHtml}</div>
-  `;
 }
 
 function switchTab(btn, targetId) {
