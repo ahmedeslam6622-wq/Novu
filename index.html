@@ -448,11 +448,14 @@ function stopRecording() {
   startWaveform(false);
 
   // Save recording object
+  const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+  const audioBlobUrl = URL.createObjectURL(audioBlob);
   const id = 'rec_' + Date.now();
   currentRec = {
     id,
     subject: document.getElementById('subject-input').value.trim() || 'Untitled class',
     transcript: transcript || '',
+    audioBlob: audioBlobUrl,
     summary: null,
     status: 'pending',
     duration: recSeconds,
