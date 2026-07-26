@@ -3,6 +3,7 @@
   "short_name": "Novu",
   "description": "Record your class. Get smart notes.",
   "start_url": "/Novu/",
+  "scope": "/Novu/",
   "display": "standalone",
   "background_color": "#080C1A",
   "theme_color": "#080C1A",
