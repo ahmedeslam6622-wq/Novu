@@ -538,7 +538,7 @@ async function summarizeOne(id) {
   renderHome();
 
   try {
-    const res = await fetch(`${backendUrl}/summarize`, {
+    const res = await fetch(backendUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ transcript: rec.transcript, length: settings.length })
