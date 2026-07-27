@@ -67,13 +67,6 @@
           <option value="detailed">Detailed</option>
         </select>
       </div>
-      <div class="settings-row">
-        <div>
-          <div class="settings-row-label">Auto-summarize</div>
-          <div class="settings-row-sub">Summarize when internet reconnects</div>
-        </div>
-        <button class="toggle on" id="toggle-auto" aria-label="Toggle auto-summarize"></button>
-      </div>
     </div>
     <div class="settings-section animate-in">
       <div class="settings-label">Storage</div>
@@ -98,7 +91,25 @@
       </div>
     </div>
     <div class="settings-section animate-in">
+      <div class="settings-label">Appearance</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">Theme</div>
+          <div class="settings-row-sub">Choose your preferred look</div>
+        </div>
+        <select class="settings-select" id="setting-theme" onchange="applyTheme(this.value)">
+          <option value="system">System</option>
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+        </select>
+      </div>
+    </div>
+    <div class="settings-section animate-in">
       <div class="settings-label">About</div>
+      <div class="settings-row">
+        <div class="settings-row-label">Founders</div>
+        <span style="color:var(--text2);font-size:13px" id="founders-names">—</span>
+      </div>
       <div class="settings-row">
         <div class="settings-row-label">Version</div>
         <span style="color:var(--text2);font-size:13px">1.0.0 beta</span>
@@ -182,6 +193,7 @@
 <script>
 // ── Config ──
 const BACKEND_URL = 'https://novu-backend.vercel.app/api/index';
+const FOUNDERS = 'Ahmed Eslam & Omar Osama'; // ← replace with real names
 
 // ── Storage helpers ──
 const DB = {
@@ -190,9 +202,17 @@ const DB = {
   del: (k) => { try { localStorage.removeItem(k); } catch {} }
 };
 
+// ── Theme ──
+function applyTheme(theme) {
+  DB.set('theme', theme);
+  if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  else if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  else document.documentElement.removeAttribute('data-theme');
+}
+
 // ── State ──
 let recordings = DB.get('recordings', []);
-let settings = DB.get('settings', { length: 'medium', autoSummarize: true, deleteAfter: '30' });
+let settings = DB.get('settings', { length: 'medium', deleteAfter: '30' });
 let currentRec = null;
 let recTimer = null;
 let recSeconds = 0;
@@ -691,7 +711,8 @@ function deleteRec(id) {
 function renderSettings() {
   document.getElementById('setting-length').value = settings.length;
   document.getElementById('setting-delete').value = settings.deleteAfter;
-  document.getElementById('toggle-auto').className = 'toggle' + (settings.autoSummarize ? ' on' : '');
+  document.getElementById('setting-theme').value = DB.get('theme') || 'system';
+  document.getElementById('founders-names').textContent = FOUNDERS;
   const bytes = new Blob([JSON.stringify(recordings)]).size;
   const kb = (bytes / 1024).toFixed(1);
   document.getElementById('storage-used').textContent = `${kb} KB used`;
@@ -699,7 +720,6 @@ function renderSettings() {
 
 document.getElementById('setting-length').addEventListener('change', e => { settings.length = e.target.value; DB.set('settings', settings); });
 document.getElementById('setting-delete').addEventListener('change', e => { settings.deleteAfter = e.target.value; DB.set('settings', settings); });
-document.getElementById('toggle-auto').addEventListener('click', function() { settings.autoSummarize = !settings.autoSummarize; this.classList.toggle('on', settings.autoSummarize); DB.set('settings', settings); });
 document.getElementById('btn-clear-all').addEventListener('click', () => {
   if (!confirm('Delete ALL recordings? This cannot be undone.')) return;
   recordings = [];
@@ -731,24 +751,17 @@ function cleanOldRecordings() {
   if (recordings.length !== before) { DB.set('recordings', recordings); }
 }
 
-// ── Auto-summarize on reconnect ──
-window.addEventListener('online', () => {
-  if (settings.autoSummarize) {
-    const queued = recordings.filter(r => r.status === 'queued');
-    if (queued.length > 0) { showToast('Back online — summarizing queued notes'); summarizeAll(); }
-  }
-});
-
 // ── Service worker ──
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
 // ── Boot ──
+applyTheme(DB.get('theme') || 'system');
 navigate('home');
 startWaveform(false);
 
-// ── Consent check ──
+// ── Consent ──
 document.getElementById('consent-agree').addEventListener('click', () => {
   DB.set('consent_given', true);
   document.getElementById('consent-modal').classList.remove('open');
