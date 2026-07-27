@@ -511,17 +511,12 @@ document.getElementById('modal-btn-now').addEventListener('click', () => {
   closeSaveModal();
   resetRecordScreen();
   // ── Consent check ──
+navigate('home');
 if (!DB.get('consent_given')) {
-  document.getElementById('consent-modal').classList.add('open');
-  document.getElementById('consent-agree').addEventListener('click', () => {
-    DB.set('consent_given', true);
-    document.getElementById('consent-modal').classList.remove('open');
-  });
+  setTimeout(() => {
+    document.getElementById('consent-modal').classList.add('open');
+  }, 300);
 }
-  navigate('home');
-  summarizeOne(rec.id);
-  currentRec = null;
-});
 
 document.getElementById('modal-btn-queue').addEventListener('click', () => {
   if (!currentRec) return;
