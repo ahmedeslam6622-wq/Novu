@@ -1,4 +1,4 @@
-const CACHE = 'Novu-v2';
+const CACHE = 'Novu-v3';
 const SHELL = ['/', '/index.html', '/styles.css', '/manifest.json', '/icons/icon.svg'];
 
 self.addEventListener('install', e => {
