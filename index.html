@@ -165,11 +165,11 @@
       <div class="modal-title">Before you start</div>
       <div class="modal-sub" style="display:block;margin-bottom:24px;">Novu records audio to generate class notes. Please make sure you have permission from your teacher or whoever you're recording before using this app. Novu is not responsible for how you use it.</div>
       <div class="modal-actions">
-        <button class="modal-btn highlighted" id="consent-agree" style="justify-content:center;">
-          <div class="modal-btn-text" style="align-items:center;">
-            <span class="modal-btn-label">I understand</span>
-          </div>
-        </button>
+       <button class="modal-btn highlighted" id="consent-agree" onclick="DB.set('consent_given', true); document.getElementById('consent-modal').classList.remove('open');" style="justify-content:center;">
+  <div class="modal-btn-text" style="align-items:center;">
+    <span class="modal-btn-label">I understand</span>
+  </div>
+</button>
       </div>
     </div>
   </div>
